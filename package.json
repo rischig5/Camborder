@@ -1,0 +1,10 @@
+{
+  "name": "camborder",
+  "version": "1.0.0",
+  "description": "Configurable camera border overlay for OBS / Twitch",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT"
+}

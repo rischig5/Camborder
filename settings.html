@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Camborder Settings</title>
+<link rel="stylesheet" href="css/settings.css">
+</head>
+<body>
+<div class="layout">
+  <div class="panel">
+    <h1>Camborder</h1>
+    <div class="sub">Configure your camera border overlay. Changes save automatically and update live in your OBS Browser Source.</div>
+
+    <div class="section">
+      <h2>Presets</h2>
+      <div class="presets" id="presets"></div>
+    </div>
+
+    <div class="section">
+      <h2>Border Color</h2>
+      <div class="row">
+        <label for="useGradient">Use gradient</label>
+        <input type="checkbox" id="useGradient">
+      </div>
+      <div class="row">
+        <label for="primaryColor">Primary</label>
+        <input type="color" id="primaryColor">
+      </div>
+      <div class="row" id="secondaryRow">
+        <label for="secondaryColor">Secondary</label>
+        <input type="color" id="secondaryColor">
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Shape</h2>
+      <div class="row">
+        <label for="thickness">Thickness</label>
+        <input type="range" id="thickness" min="2" max="40" step="1">
+        <span class="range-value" id="thickness-val"></span>
+      </div>
+      <div class="row">
+        <label for="cornerStyle">Corner style</label>
+        <select id="cornerStyle">
+          <option value="rounded">Rounded</option>
+          <option value="square">Square</option>
+          <option value="cut">Cut</option>
+        </select>
+      </div>
+      <div class="row" id="radiusRow">
+        <label for="cornerRadius">Corner size</label>
+        <input type="range" id="cornerRadius" min="0" max="80" step="1">
+        <span class="range-value" id="cornerRadius-val"></span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Glow</h2>
+      <div class="row">
+        <label for="glow">Enable glow</label>
+        <input type="checkbox" id="glow">
+      </div>
+      <div class="row">
+        <label for="glowColor">Glow color</label>
+        <input type="color" id="glowColor">
+      </div>
+      <div class="row">
+        <label for="glowIntensity">Intensity</label>
+        <input type="range" id="glowIntensity" min="0" max="50" step="1">
+        <span class="range-value" id="glowIntensity-val"></span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Animation</h2>
+      <div class="row">
+        <label for="animated">Animate gradient</label>
+        <input type="checkbox" id="animated">
+      </div>
+      <div class="row">
+        <label for="animationSpeed">Speed (s/cycle)</label>
+        <input type="range" id="animationSpeed" min="1" max="20" step="1">
+        <span class="range-value" id="animationSpeed-val"></span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Label</h2>
+      <div class="row">
+        <label for="labelShow">Show label</label>
+        <input type="checkbox" id="labelShow">
+      </div>
+      <div class="row">
+        <label for="labelText">Text</label>
+        <input type="text" id="labelText" maxlength="40">
+      </div>
+      <div class="row">
+        <label for="labelPosition">Position</label>
+        <select id="labelPosition">
+          <option value="top-left">Top left</option>
+          <option value="top-center">Top center</option>
+          <option value="top-right">Top right</option>
+          <option value="bottom-left">Bottom left</option>
+          <option value="bottom-center">Bottom center</option>
+          <option value="bottom-right">Bottom right</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="labelFontSize">Font size</label>
+        <input type="range" id="labelFontSize" min="10" max="40" step="1">
+        <span class="range-value" id="labelFontSize-val"></span>
+      </div>
+      <div class="row">
+        <label for="labelTextColor">Text color</label>
+        <input type="color" id="labelTextColor">
+      </div>
+      <div class="row">
+        <label for="labelBgColor">Background</label>
+        <input type="color" id="labelBgColor">
+      </div>
+    </div>
+
+    <div class="section" style="border-bottom:none;">
+      <h2>Manage</h2>
+      <div class="actions">
+        <button class="action-btn" id="exportBtn">Export JSON</button>
+        <button class="action-btn" id="importBtn">Import JSON</button>
+        <button class="action-btn" id="resetBtn">Reset to default</button>
+      </div>
+      <div class="hint">Point your OBS Browser Source at <code>overlay.html</code> (not this page). As long as <code>server.js</code> is running, changes here apply live everywhere, including inside OBS.</div>
+    </div>
+  </div>
+
+  <div class="preview-wrap">
+    <div class="preview-frame">
+      <iframe src="overlay.html" title="Live preview"></iframe>
+    </div>
+  </div>
+</div>
+
+<script src="js/settings-store.js"></script>
+<script src="js/settings-panel.js"></script>
+</body>
+</html>

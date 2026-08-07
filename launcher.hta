@@ -30,10 +30,8 @@
     overflow: hidden;
   }
 
-  /* Layout deliberately avoids flexbox/gap: HTA can fall back to older
-     rendering modes where those silently do nothing and everything
-     collapses to the top-left corner. text-align + auto margins always
-     center, in every mode. */
+  /* Centering uses text-align + auto margins rather than flexbox: HTA can
+     fall back to rendering modes where flex/gap do nothing at all. */
   .wrap {
     padding: 26px 22px 20px;
     text-align: center;
@@ -45,8 +43,8 @@
     margin: 0 0 3px;
     letter-spacing: 0.02em;
   }
-  /* Two spans instead of gradient-clipped text: background-clip:text
-     isn't supported here, and transparent text with no clip = invisible. */
+  /* Two colored spans, not gradient-clipped text: background-clip:text is
+     unsupported here and would render the title invisible. */
   h1 .a { color: #9146FF; }
   h1 .b { color: #00D8D8; }
 
@@ -147,7 +145,7 @@
     <h1><span class="a">Cam</span><span class="b">border</span></h1>
     <div class="sub">Local overlay server</div>
 
-    <button id="btn" onclick="DoToggle()">START</button>
+    <button id="btn" onclick="doToggle()">START</button>
 
     <div class="status">
       <span id="dot" class="dot"></span><span id="statusText">Checking...</span>
@@ -156,292 +154,271 @@
     <div class="err" id="errText"></div>
 
     <div class="links">
-      <button id="settingsBtn" onclick="DoOpenSettings()" disabled>Open Settings Panel</button>
-      <button id="overlayBtn" onclick="DoOpenOverlay()" disabled>Open Overlay Preview</button>
-      <button id="obsBtn" onclick="DoOpenObs()">Open OBS</button>
+      <button id="settingsBtn" onclick="doOpenSettings()" disabled>Open Settings Panel</button>
+      <button id="overlayBtn" onclick="doOpenOverlay()" disabled>Open Overlay Preview</button>
+      <button id="obsBtn" onclick="doOpenObs()">Open OBS</button>
     </div>
   </div>
 
-<script language="VBScript">
-' NOTE: no Sub below may share a name with an element id. Elements are
-' exposed as global window properties, so a matching name shadows the Sub
-' and clicking it throws "Object doesn't support property or method".
+<script type="text/javascript">
+/* JScript rather than VBScript on purpose: VBScript's statement-call syntax
+   has parsing traps that abort the whole script block on load, which takes
+   every button down with it and is invisible until you click something.
 
-Dim PORT, BASE_URL, PROJECT_DIR, isRunning, pollAttempts, busy
+   Naming rule: no function here may share a name with an element id -
+   element ids become global properties and would shadow the function. */
 
-PORT = "5173"
-BASE_URL = "http://localhost:" & PORT
-isRunning = False
-busy = False
+var PORT = 5173;
+var BASE_URL = 'http://localhost:' + PORT;
+var WIN_W = 360;
+var WIN_H = 560;
 
-Sub Window_OnLoad
-  On Error Resume Next
-  window.resizeTo 360, 560
-  window.moveTo (screen.availWidth - 360) \ 2, (screen.availHeight - 560) \ 3
-  On Error GoTo 0
-  PROJECT_DIR = GetProjectDir()
-  RefreshStatus
-  window.setTimeout "Heartbeat", 3000, "VBScript"
-End Sub
+var projectDir = '';
+var isRunning = false;
+var busy = false;
+var pollAttempts = 0;
 
-Function El(elemId)
-  Set El = document.getElementById(elemId)
-End Function
+function el(id) {
+  return document.getElementById(id);
+}
 
-Function GetProjectDir()
-  Dim p
-  p = document.location.pathname
-  On Error Resume Next
-  p = Unescape(p)          ' %20 etc. if the folder path has spaces
-  On Error GoTo 0
-  p = Replace(p, "/", "\")
-  ' file:// paths arrive as "\C:\folder\launcher.hta" - drop the leading
-  ' slash, but leave UNC ("\\server\share") alone.
-  If Len(p) >= 3 Then
-    If Left(p, 1) = "\" And Mid(p, 3, 1) = ":" Then p = Mid(p, 2)
-  End If
-  If InStrRev(p, "\") > 0 Then
-    GetProjectDir = Left(p, InStrRev(p, "\") - 1)   ' no trailing slash
-  Else
-    GetProjectDir = p
-  End If
-End Function
+function setText(id, text) {
+  el(id).innerHTML = text;
+}
 
-' ServerXMLHTTP (not XMLHTTP) on purpose: it bypasses the WinINet cache,
-' so a stopped server can't keep reporting a cached 200.
-Function IsServerUp()
-  Dim xhr, ok
-  ok = False
-  On Error Resume Next
-  Set xhr = CreateObject("MSXML2.ServerXMLHTTP.6.0")
-  If Err.Number <> 0 Then
-    Err.Clear
-    Set xhr = CreateObject("Msxml2.XMLHTTP")
-  End If
-  If Not xhr Is Nothing Then
-    xhr.setTimeouts 1500, 1500, 1500, 2500
-    xhr.open "GET", BASE_URL & "/api/settings?t=" & CStr(Timer()), False
-    xhr.setRequestHeader "Cache-Control", "no-cache"
-    xhr.send
-    If Err.Number = 0 Then
-      If xhr.status = 200 Then ok = True
-    End If
-  End If
-  On Error GoTo 0
-  IsServerUp = ok
-End Function
+/* file:// paths arrive slash-separated and percent-encoded, e.g.
+   /C:/Users/me/My%20Folder/launcher.hta */
+function findProjectDir() {
+  var p = document.location.pathname;
+  try { p = decodeURIComponent(p); } catch (e) { /* leave as-is */ }
+  p = p.replace(/\//g, '\\');
+  if (p.length >= 3 && p.charAt(0) === '\\' && p.charAt(2) === ':') {
+    p = p.substring(1);
+  }
+  var cut = p.lastIndexOf('\\');
+  return cut > 0 ? p.substring(0, cut) : p;   // no trailing slash
+}
 
-Sub RefreshStatus
-  SetBusyUI "Checking..."
-  If IsServerUp() Then
-    isRunning = True
-    SetRunningUI
-  Else
-    isRunning = False
-    SetIdleUI
-  End If
-End Sub
+/* ServerXMLHTTP is preferred because it ignores the WinINet cache - plain
+   XMLHTTP can replay a cached 200 and report a stopped server as running. */
+function httpStatus(method, url, body) {
+  var xhr = null;
+  try {
+    xhr = new ActiveXObject('MSXML2.ServerXMLHTTP.6.0');
+  } catch (e) {
+    try { xhr = new ActiveXObject('Msxml2.XMLHTTP'); } catch (e2) { return -1; }
+  }
+  try { xhr.setTimeouts(1500, 1500, 1500, 2500); } catch (e3) { /* not on XMLHTTP */ }
+  try {
+    xhr.open(method, url, false);
+    xhr.setRequestHeader('Cache-Control', 'no-cache');
+    xhr.send(body || '');
+    return xhr.status;
+  } catch (e4) {
+    return -1;
+  }
+}
 
-' Keeps the button honest if the server is started or killed elsewhere.
-Sub Heartbeat
-  Dim up
-  If Not busy Then
-    up = IsServerUp()
-    If up <> isRunning Then
-      isRunning = up
-      If up Then
-        SetRunningUI
-      Else
-        SetIdleUI
-      End If
-    End If
-  End If
-  window.setTimeout "Heartbeat", 3000, "VBScript"
-End Sub
+function isServerUp() {
+  var url = BASE_URL + '/api/settings?t=' + new Date().getTime();
+  return httpStatus('GET', url, null) === 200;
+}
 
-Sub SetIdleUI
-  busy = False
-  El("btn").className = ""
-  El("btn").innerText = "START"
-  El("btn").disabled = False
-  El("dot").className = "dot"
-  El("statusText").innerText = "Not running"
-  El("settingsBtn").disabled = True
-  El("overlayBtn").disabled = True
-End Sub
+function setIdleUI() {
+  busy = false;
+  el('btn').className = '';
+  setText('btn', 'START');
+  el('btn').disabled = false;
+  el('dot').className = 'dot';
+  setText('statusText', 'Not running');
+  el('settingsBtn').disabled = true;
+  el('overlayBtn').disabled = true;
+}
 
-Sub SetRunningUI
-  busy = False
-  El("btn").className = "running"
-  El("btn").innerText = "STOP"
-  El("btn").disabled = False
-  El("dot").className = "dot on pulse"
-  El("statusText").innerText = "Running on port " & PORT
-  El("settingsBtn").disabled = False
-  El("overlayBtn").disabled = False
-  El("errText").innerText = ""
-End Sub
+function setRunningUI() {
+  busy = false;
+  el('btn').className = 'running';
+  setText('btn', 'STOP');
+  el('btn').disabled = false;
+  el('dot').className = 'dot on pulse';
+  setText('statusText', 'Running on port ' + PORT);
+  el('settingsBtn').disabled = false;
+  el('overlayBtn').disabled = false;
+  setText('errText', '');
+}
 
-Sub SetBusyUI(msg)
-  busy = True
-  El("btn").className = "busy"
-  El("btn").disabled = True
-  El("dot").className = "dot"
-  El("statusText").innerText = msg
-End Sub
+function setBusyUI(msg) {
+  busy = true;
+  el('btn').className = 'busy';
+  el('btn').disabled = true;
+  el('dot').className = 'dot';
+  setText('statusText', msg);
+}
 
-Sub DoToggle
-  If busy Then Exit Sub
-  If isRunning Then
-    StopServer
-  Else
-    StartServer
-  End If
-End Sub
+function applyState(up) {
+  isRunning = up;
+  if (up) { setRunningUI(); } else { setIdleUI(); }
+}
 
-Sub StartServer
-  Dim shell
-  SetBusyUI "Starting..."
-  El("errText").innerText = ""
-  On Error Resume Next
-  Set shell = CreateObject("WScript.Shell")
-  shell.CurrentDirectory = PROJECT_DIR
-  shell.Run "cmd /c cd /d """ & PROJECT_DIR & """ && node server.js", 0, False
-  If Err.Number <> 0 Then
-    El("errText").innerText = "Couldn't launch Node. Is Node.js installed?"
-    SetIdleUI
-    Exit Sub
-  End If
-  On Error GoTo 0
-  pollAttempts = 0
-  window.setTimeout "PollForStart", 500, "VBScript"
-End Sub
+function refreshStatus() {
+  setBusyUI('Checking...');
+  applyState(isServerUp());
+}
 
-Sub PollForStart
-  pollAttempts = pollAttempts + 1
-  If IsServerUp() Then
-    isRunning = True
-    SetRunningUI
-    OpenUrl BASE_URL & "/settings.html"
-  ElseIf pollAttempts >= 20 Then
-    El("errText").innerText = "Server didn't start. Check that Node.js is installed, then try again."
-    SetIdleUI
-  Else
-    window.setTimeout "PollForStart", 500, "VBScript"
-  End If
-End Sub
+/* Keeps START/STOP honest if the server is started or killed elsewhere. */
+function heartbeat() {
+  if (!busy) {
+    var up = isServerUp();
+    if (up !== isRunning) { applyState(up); }
+  }
+  window.setTimeout(heartbeat, 3000);
+}
 
-Sub StopServer
-  Dim proc, procs
-  SetBusyUI "Stopping..."
-  On Error Resume Next
-  Set procs = GetObject("winmgmts:").ExecQuery( _
-    "Select * from Win32_Process Where Name='node.exe'")
-  For Each proc In procs
-    If InStr(1, proc.CommandLine, "server.js", 1) > 0 Then
-      proc.Terminate()
-    End If
-  Next
-  On Error GoTo 0
-  pollAttempts = 0
-  window.setTimeout "PollForStop", 500, "VBScript"
-End Sub
+function doToggle() {
+  if (busy) { return; }
+  if (isRunning) { stopServer(); } else { startServer(); }
+}
 
-Sub PollForStop
-  pollAttempts = pollAttempts + 1
-  If Not IsServerUp() Then
-    isRunning = False
-    SetIdleUI
-  ElseIf pollAttempts >= 20 Then
-    El("errText").innerText = "Couldn't stop the server. Close it from Task Manager (node.exe)."
-    isRunning = True
-    SetRunningUI
-  Else
-    window.setTimeout "PollForStop", 500, "VBScript"
-  End If
-End Sub
+function startServer() {
+  setBusyUI('Starting...');
+  setText('errText', '');
+  try {
+    var shell = new ActiveXObject('WScript.Shell');
+    shell.Run('cmd /c cd /d "' + projectDir + '" && node server.js', 0, false);
+  } catch (e) {
+    setText('errText', "Couldn't launch Node. Is Node.js installed?");
+    setIdleUI();
+    return;
+  }
+  pollAttempts = 0;
+  window.setTimeout(pollForStart, 600);
+}
 
-Sub OpenUrl(u)
-  Dim shell
-  Set shell = CreateObject("WScript.Shell")
-  shell.Run u
-End Sub
+function pollForStart() {
+  pollAttempts++;
+  if (isServerUp()) {
+    applyState(true);
+    openUrl(BASE_URL + '/settings.html');
+  } else if (pollAttempts >= 20) {
+    setText('errText', 'Server did not start. Check that Node.js is installed, then try again.');
+    setIdleUI();
+  } else {
+    window.setTimeout(pollForStart, 500);
+  }
+}
 
-Sub DoOpenSettings
-  OpenUrl BASE_URL & "/settings.html"
-End Sub
+/* Asks the server to exit via its own endpoint - no process hunting. */
+function stopServer() {
+  setBusyUI('Stopping...');
+  setText('errText', '');
+  httpStatus('POST', BASE_URL + '/api/shutdown', '');
+  pollAttempts = 0;
+  window.setTimeout(pollForStop, 400);
+}
 
-Sub DoOpenOverlay
-  OpenUrl BASE_URL & "/overlay.html"
-End Sub
+function pollForStop() {
+  pollAttempts++;
+  if (!isServerUp()) {
+    applyState(false);
+  } else if (pollAttempts >= 20) {
+    setText('errText', 'Could not stop the server. End node.exe from Task Manager.');
+    applyState(true);
+  } else {
+    window.setTimeout(pollForStop, 400);
+  }
+}
 
-Function FindObs()
-  Dim shell, fso, regRoots, i, base, candidates, j
-  Set shell = CreateObject("WScript.Shell")
-  Set fso = CreateObject("Scripting.FileSystemObject")
-  FindObs = ""
+function openUrl(u) {
+  try {
+    new ActiveXObject('WScript.Shell').Run(u);
+  } catch (e) {
+    setText('errText', 'Could not open ' + u);
+  }
+}
 
-  ' Ask the installer's registry entry first - handles installs on any drive.
-  regRoots = Array( _
-    "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\OBS Studio\InstallLocation", _
-    "HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\OBS Studio\InstallLocation", _
-    "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\OBS Studio\InstallLocation" _
-  )
-  For i = 0 To UBound(regRoots)
-    base = ""
-    On Error Resume Next
-    base = shell.RegRead(regRoots(i))
-    On Error GoTo 0
-    If base <> "" Then
-      If Right(base, 1) = "\" Then base = Left(base, Len(base) - 1)
-      If fso.FileExists(base & "\bin\64bit\obs64.exe") Then
-        FindObs = base & "\bin\64bit\obs64.exe"
-        Exit Function
-      End If
-      If fso.FileExists(base & "\bin\32bit\obs32.exe") Then
-        FindObs = base & "\bin\32bit\obs32.exe"
-        Exit Function
-      End If
-    End If
-  Next
+function doOpenSettings() { openUrl(BASE_URL + '/settings.html'); }
+function doOpenOverlay() { openUrl(BASE_URL + '/overlay.html'); }
 
-  candidates = Array( _
-    shell.ExpandEnvironmentStrings("%ProgramFiles%") & "\obs-studio\bin\64bit\obs64.exe", _
-    shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\obs-studio\bin\64bit\obs64.exe", _
-    shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\obs-studio\bin\32bit\obs32.exe", _
-    shell.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Programs\obs-studio\bin\64bit\obs64.exe" _
-  )
-  For j = 0 To UBound(candidates)
-    If fso.FileExists(candidates(j)) Then
-      FindObs = candidates(j)
-      Exit Function
-    End If
-  Next
-End Function
+function findObs() {
+  var shell, fso;
+  try {
+    shell = new ActiveXObject('WScript.Shell');
+    fso = new ActiveXObject('Scripting.FileSystemObject');
+  } catch (e) {
+    return '';
+  }
 
-Sub DoOpenObs
-  Dim shell, fso, exePath
-  Set shell = CreateObject("WScript.Shell")
-  Set fso = CreateObject("Scripting.FileSystemObject")
-  El("errText").innerText = ""
+  var i, base, exe;
+  var tails = ['\\bin\\64bit\\obs64.exe', '\\bin\\32bit\\obs32.exe'];
 
-  exePath = FindObs()
-  If exePath = "" Then
-    El("errText").innerText = "Couldn't find OBS automatically - open it manually this time."
-    Exit Sub
-  End If
+  /* The installer's registry entry first, so installs on any drive work. */
+  var regKeys = [
+    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\OBS Studio\\InstallLocation',
+    'HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\OBS Studio\\InstallLocation',
+    'HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\OBS Studio\\InstallLocation'
+  ];
+  for (i = 0; i < regKeys.length; i++) {
+    base = '';
+    try { base = shell.RegRead(regKeys[i]); } catch (e2) { base = ''; }
+    if (base) {
+      if (base.charAt(base.length - 1) === '\\') {
+        base = base.substring(0, base.length - 1);
+      }
+      for (var t = 0; t < tails.length; t++) {
+        exe = base + tails[t];
+        try { if (fso.FileExists(exe)) { return exe; } } catch (e3) {}
+      }
+    }
+  }
 
-  ' OBS must be launched with its own bin folder as the working directory,
-  ' otherwise it fails to find its locale/plugin files and won't start.
-  On Error Resume Next
-  shell.CurrentDirectory = fso.GetParentFolderName(exePath)
-  shell.Run """" & exePath & """", 1, False
-  If Err.Number <> 0 Then
-    El("errText").innerText = "Found OBS but couldn't launch it."
-  End If
-  On Error GoTo 0
-  shell.CurrentDirectory = PROJECT_DIR
-End Sub
+  var roots = [];
+  var envNames = ['%ProgramFiles%', '%ProgramFiles(x86)%', '%LOCALAPPDATA%\\Programs'];
+  for (i = 0; i < envNames.length; i++) {
+    try { roots.push(shell.ExpandEnvironmentStrings(envNames[i]) + '\\obs-studio'); } catch (e4) {}
+  }
+  for (i = 0; i < roots.length; i++) {
+    for (var k = 0; k < tails.length; k++) {
+      exe = roots[i] + tails[k];
+      try { if (fso.FileExists(exe)) { return exe; } } catch (e5) {}
+    }
+  }
+  return '';
+}
+
+function doOpenObs() {
+  setText('errText', '');
+  var exe = findObs();
+  if (!exe) {
+    setText('errText', 'Could not find OBS automatically - open it manually this time.');
+    return;
+  }
+  try {
+    var shell = new ActiveXObject('WScript.Shell');
+    var fso = new ActiveXObject('Scripting.FileSystemObject');
+    /* OBS needs its own bin folder as the working directory or it fails to
+       load its locale files and refuses to start. */
+    shell.CurrentDirectory = fso.GetParentFolderName(exe);
+    shell.Run('"' + exe + '"', 1, false);
+    shell.CurrentDirectory = projectDir;
+  } catch (e) {
+    setText('errText', 'Found OBS but could not launch it.');
+  }
+}
+
+function init() {
+  try {
+    window.resizeTo(WIN_W, WIN_H);
+    var x = Math.floor((screen.availWidth - WIN_W) / 2);
+    var y = Math.floor((screen.availHeight - WIN_H) / 3);
+    window.moveTo(x, y);
+  } catch (e) { /* sizing is cosmetic */ }
+
+  projectDir = findProjectDir();
+  refreshStatus();
+  window.setTimeout(heartbeat, 3000);
+}
+
+window.onload = init;
 </script>
 </body>
 </html>

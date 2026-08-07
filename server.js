@@ -83,6 +83,15 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Lets the launcher's STOP button shut the server down cleanly. Safe to
+  // expose because the server only listens on the loopback interface.
+  if (url.pathname === '/api/shutdown' && req.method === 'POST') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    setTimeout(() => process.exit(0), 150); // let the response flush first
+    return;
+  }
+
   if (url.pathname === '/api/settings/stream' && req.method === 'GET') {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -100,7 +109,9 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res, url.pathname);
 });
 
-server.listen(PORT, () => {
+// Loopback only: OBS and the settings panel are both on this machine, and it
+// keeps the shutdown endpoint off the local network.
+server.listen(PORT, '127.0.0.1', () => {
   console.log(`Camborder server running at http://localhost:${PORT}`);
   console.log(`  Overlay (point OBS Browser Source here):  http://localhost:${PORT}/overlay.html`);
   console.log(`  Settings panel (open in your browser):    http://localhost:${PORT}/settings.html`);

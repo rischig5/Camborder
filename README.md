@@ -8,9 +8,16 @@ You need [Node.js](https://nodejs.org) installed (no other dependencies — noth
 
 **Windows — one-click launcher (recommended, no terminal needed):**
 
-Double-click **`Start Camborder.bat`**. A small purple popup window opens with a circular **START** button — click it. It launches the server in the background (no console window), waits for it to come up, and automatically opens the settings panel in your browser. The button turns into a red **STOP** you can click to shut the server down; closing the popup window does *not* stop the server, so you can safely close it once things are running.
+1. Double-click **`Create Desktop Shortcut.vbs`** once. It puts a **Camborder** icon on your Desktop.
+2. From then on, double-click that Desktop icon whenever you want to stream.
 
-Tip: right-click `Start Camborder.bat` → **Send to** → **Desktop (create shortcut)** so it's one click from your desktop every time, no need to open this folder or VS Code again. If Windows SmartScreen warns about an unrecognized app the first time (normal for any unsigned local script), click **More info** → **Run anyway**.
+A small popup opens with a circular **START** button. Click it and the server launches in the background (no console window); once it's up the button turns into a red **STOP**, a green dot confirms it's live, and the settings panel opens in your browser automatically.
+
+- The panel checks on open whether the server is *already* running, and re-checks every few seconds — so it always shows START or STOP correctly, even if the server was started or killed somewhere else.
+- Closing the popup does **not** stop the server. Only the STOP button does. So you can close the window and keep streaming.
+- **Open OBS** launches OBS for you (found via its registry entry, so it works on any drive).
+
+If Windows SmartScreen warns about an unrecognized app the first time (normal for any unsigned local script), click **More info** → **Run anyway**. You can also start the popup directly with `Start Camborder.bat` if you'd rather not make a Desktop shortcut.
 
 **Any OS — manual start:**
 

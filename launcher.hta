@@ -5,6 +5,7 @@
 <HTA:APPLICATION
   ID="camborderLauncher"
   APPLICATIONNAME="Camborder"
+  ICON="camborder.ico"
   BORDER="thin"
   CAPTION="yes"
   MAXIMIZEBUTTON="no"
@@ -17,8 +18,10 @@
 />
 <style>
   * { box-sizing: border-box; }
+
   html, body {
     margin: 0;
+    padding: 0;
     width: 360px;
     height: 560px;
     background: #0e0e10;
@@ -26,161 +29,205 @@
     font-family: 'Segoe UI', Arial, sans-serif;
     overflow: hidden;
   }
+
+  /* Layout deliberately avoids flexbox/gap: HTA can fall back to older
+     rendering modes where those silently do nothing and everything
+     collapses to the top-left corner. text-align + auto margins always
+     center, in every mode. */
   .wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    height: 100%;
-    padding: 22px 20px;
+    padding: 26px 22px 20px;
+    text-align: center;
   }
+
   h1 {
-    font-size: 18px;
-    margin: 0 0 2px;
-    background: linear-gradient(90deg, #9146FF, #00D8D8);
-    -webkit-background-clip: text;
-    color: transparent;
+    font-size: 23px;
+    font-weight: 700;
+    margin: 0 0 3px;
     letter-spacing: 0.02em;
   }
+  /* Two spans instead of gradient-clipped text: background-clip:text
+     isn't supported here, and transparent text with no clip = invisible. */
+  h1 .a { color: #9146FF; }
+  h1 .b { color: #00D8D8; }
+
   .sub {
     font-size: 11px;
     color: #adadb8;
-    margin-bottom: 26px;
-    text-align: center;
+    margin: 0 0 26px;
   }
+
   #btn {
-    width: 160px;
-    height: 160px;
+    display: block;
+    margin: 0 auto;
+    width: 172px;
+    height: 172px;
     border-radius: 50%;
     border: none;
     cursor: pointer;
-    background: radial-gradient(circle at 35% 30%, #a35bff, #9146FF 55%, #6a2fd9);
-    box-shadow: 0 0 0 6px rgba(145, 70, 255, 0.12), 0 0 30px 4px rgba(145, 70, 255, 0.45);
     color: #ffffff;
-    font-size: 20px;
+    font-family: inherit;
+    font-size: 22px;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
+    background: #9146FF;
+    background: radial-gradient(circle at 34% 28%, #b57bff 0%, #9146FF 52%, #6a2fd9 100%);
+    box-shadow: 0 0 0 7px rgba(145, 70, 255, 0.13), 0 0 34px 6px rgba(145, 70, 255, 0.42);
     transition: transform 0.12s ease, box-shadow 0.2s ease;
   }
   #btn:hover { transform: scale(1.03); }
   #btn:active { transform: scale(0.97); }
+
   #btn.running {
-    background: radial-gradient(circle at 35% 30%, #ff6a6a, #e24545 55%, #b52c2c);
-    box-shadow: 0 0 0 6px rgba(226, 69, 69, 0.12), 0 0 30px 4px rgba(226, 69, 69, 0.45);
+    background: #e24545;
+    background: radial-gradient(circle at 34% 28%, #ff8b8b 0%, #e24545 52%, #b52c2c 100%);
+    box-shadow: 0 0 0 7px rgba(226, 69, 69, 0.13), 0 0 34px 6px rgba(226, 69, 69, 0.42);
   }
   #btn.busy {
-    background: radial-gradient(circle at 35% 30%, #555, #333 55%, #222);
-    box-shadow: 0 0 0 6px rgba(255,255,255,0.05);
+    background: #33333a;
+    background: radial-gradient(circle at 34% 28%, #55555f 0%, #33333a 52%, #232329 100%);
+    box-shadow: 0 0 0 7px rgba(255, 255, 255, 0.04);
     cursor: default;
+    color: #b9b9c2;
   }
-  #btn:disabled { pointer-events: none; }
 
   .status {
-    margin-top: 22px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    margin-top: 26px;
     font-size: 13px;
     color: #dedee3;
   }
   .dot {
+    display: inline-block;
     width: 9px;
     height: 9px;
     border-radius: 50%;
     background: #6d6d76;
+    margin-right: 7px;
+    vertical-align: middle;
   }
   .dot.on {
     background: #3ad66d;
-    box-shadow: 0 0 8px 1px rgba(58, 214, 109, 0.8);
+    box-shadow: 0 0 8px 1px rgba(58, 214, 109, 0.75);
   }
-  .dot.pulse { animation: pulse 1.4s infinite ease-in-out; }
+  .dot.pulse { animation: pulse 1.5s infinite ease-in-out; }
   @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.35; }
+    0%   { opacity: 1; }
+    50%  { opacity: 0.3; }
+    100% { opacity: 1; }
+  }
+  .status span { vertical-align: middle; }
+
+  .err {
+    margin-top: 12px;
+    min-height: 30px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: #ff8a8a;
   }
 
-  .links {
-    margin-top: 22px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 100%;
-  }
+  .links { margin-top: 6px; }
   .links button {
+    display: block;
+    width: 100%;
+    margin: 0 0 8px;
     background: #202024;
     border: 1px solid #35353b;
     color: #efeff1;
     border-radius: 6px;
-    padding: 9px;
+    padding: 10px;
+    font-family: inherit;
     font-size: 12px;
     cursor: pointer;
   }
-  .links button:hover { background: #2a2a30; }
-  .links button:disabled { opacity: 0.4; cursor: default; }
-
-  .err {
-    margin-top: 14px;
-    font-size: 11px;
-    color: #ff8080;
-    text-align: center;
-    min-height: 14px;
-  }
+  .links button:hover { background: #2a2a30; border-color: #45454d; }
+  .links button:disabled { opacity: 0.35; cursor: default; }
 </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Camborder</h1>
+    <h1><span class="a">Cam</span><span class="b">border</span></h1>
     <div class="sub">Local overlay server</div>
 
-    <button id="btn" onclick="toggleServer()">START</button>
+    <button id="btn" onclick="DoToggle()">START</button>
 
     <div class="status">
-      <div id="dot" class="dot"></div>
-      <span id="statusText">Checking...</span>
+      <span id="dot" class="dot"></span><span id="statusText">Checking...</span>
     </div>
 
     <div class="err" id="errText"></div>
 
     <div class="links">
-      <button id="openSettings" onclick="openUrl('http://localhost:5173/settings.html')" disabled>Open Settings Panel</button>
-      <button id="openOverlay" onclick="openUrl('http://localhost:5173/overlay.html')" disabled>Open Overlay Preview</button>
-      <button id="openObs" onclick="openObs()">Open OBS</button>
+      <button id="settingsBtn" onclick="DoOpenSettings()" disabled>Open Settings Panel</button>
+      <button id="overlayBtn" onclick="DoOpenOverlay()" disabled>Open Overlay Preview</button>
+      <button id="obsBtn" onclick="DoOpenObs()">Open OBS</button>
     </div>
   </div>
 
 <script language="VBScript">
-Dim PORT, BASE_URL, PROJECT_DIR, isRunning, pollAttempts
+' NOTE: no Sub below may share a name with an element id. Elements are
+' exposed as global window properties, so a matching name shadows the Sub
+' and clicking it throws "Object doesn't support property or method".
+
+Dim PORT, BASE_URL, PROJECT_DIR, isRunning, pollAttempts, busy
 
 PORT = "5173"
 BASE_URL = "http://localhost:" & PORT
+isRunning = False
+busy = False
 
 Sub Window_OnLoad
   On Error Resume Next
   window.resizeTo 360, 560
-  window.moveTo (screen.availWidth - 360) \ 2, (screen.availHeight - 560) \ 2
-  On Error Goto 0
+  window.moveTo (screen.availWidth - 360) \ 2, (screen.availHeight - 560) \ 3
+  On Error GoTo 0
   PROJECT_DIR = GetProjectDir()
-  isRunning = False
   RefreshStatus
+  window.setTimeout "Heartbeat", 3000, "VBScript"
 End Sub
 
-Function GetProjectDir()
-  Dim fso
-  Set fso = CreateObject("Scripting.FileSystemObject")
-  GetProjectDir = fso.GetParentFolderName(document.location.pathname)
+Function El(elemId)
+  Set El = document.getElementById(elemId)
 End Function
 
+Function GetProjectDir()
+  Dim p
+  p = document.location.pathname
+  On Error Resume Next
+  p = Unescape(p)          ' %20 etc. if the folder path has spaces
+  On Error GoTo 0
+  p = Replace(p, "/", "\")
+  ' file:// paths arrive as "\C:\folder\launcher.hta" - drop the leading
+  ' slash, but leave UNC ("\\server\share") alone.
+  If Len(p) >= 3 Then
+    If Left(p, 1) = "\" And Mid(p, 3, 1) = ":" Then p = Mid(p, 2)
+  End If
+  If InStrRev(p, "\") > 0 Then
+    GetProjectDir = Left(p, InStrRev(p, "\") - 1)   ' no trailing slash
+  Else
+    GetProjectDir = p
+  End If
+End Function
+
+' ServerXMLHTTP (not XMLHTTP) on purpose: it bypasses the WinINet cache,
+' so a stopped server can't keep reporting a cached 200.
 Function IsServerUp()
   Dim xhr, ok
   ok = False
   On Error Resume Next
-  Set xhr = CreateObject("Msxml2.XMLHTTP")
-  xhr.open "GET", BASE_URL & "/api/settings", False
-  xhr.send
-  If Err.Number = 0 Then
-    If xhr.status = 200 Then ok = True
+  Set xhr = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+  If Err.Number <> 0 Then
+    Err.Clear
+    Set xhr = CreateObject("Msxml2.XMLHTTP")
   End If
-  On Error Goto 0
+  If Not xhr Is Nothing Then
+    xhr.setTimeouts 1500, 1500, 1500, 2500
+    xhr.open "GET", BASE_URL & "/api/settings?t=" & CStr(Timer()), False
+    xhr.setRequestHeader "Cache-Control", "no-cache"
+    xhr.send
+    If Err.Number = 0 Then
+      If xhr.status = 200 Then ok = True
+    End If
+  End If
+  On Error GoTo 0
   IsServerUp = ok
 End Function
 
@@ -195,36 +242,56 @@ Sub RefreshStatus
   End If
 End Sub
 
+' Keeps the button honest if the server is started or killed elsewhere.
+Sub Heartbeat
+  Dim up
+  If Not busy Then
+    up = IsServerUp()
+    If up <> isRunning Then
+      isRunning = up
+      If up Then
+        SetRunningUI
+      Else
+        SetIdleUI
+      End If
+    End If
+  End If
+  window.setTimeout "Heartbeat", 3000, "VBScript"
+End Sub
+
 Sub SetIdleUI
-  btn.className = ""
-  btn.innerText = "START"
-  btn.disabled = False
-  dot.className = "dot"
-  statusText.innerText = "Not running"
-  openSettings.disabled = True
-  openOverlay.disabled = True
-  errText.innerText = ""
+  busy = False
+  El("btn").className = ""
+  El("btn").innerText = "START"
+  El("btn").disabled = False
+  El("dot").className = "dot"
+  El("statusText").innerText = "Not running"
+  El("settingsBtn").disabled = True
+  El("overlayBtn").disabled = True
 End Sub
 
 Sub SetRunningUI
-  btn.className = "running"
-  btn.innerText = "STOP"
-  btn.disabled = False
-  dot.className = "dot on pulse"
-  statusText.innerText = "Running on port " & PORT
-  openSettings.disabled = False
-  openOverlay.disabled = False
-  errText.innerText = ""
+  busy = False
+  El("btn").className = "running"
+  El("btn").innerText = "STOP"
+  El("btn").disabled = False
+  El("dot").className = "dot on pulse"
+  El("statusText").innerText = "Running on port " & PORT
+  El("settingsBtn").disabled = False
+  El("overlayBtn").disabled = False
+  El("errText").innerText = ""
 End Sub
 
 Sub SetBusyUI(msg)
-  btn.className = "busy"
-  btn.disabled = True
-  dot.className = "dot"
-  statusText.innerText = msg
+  busy = True
+  El("btn").className = "busy"
+  El("btn").disabled = True
+  El("dot").className = "dot"
+  El("statusText").innerText = msg
 End Sub
 
-Sub toggleServer()
+Sub DoToggle
+  If busy Then Exit Sub
   If isRunning Then
     StopServer
   Else
@@ -235,16 +302,17 @@ End Sub
 Sub StartServer
   Dim shell
   SetBusyUI "Starting..."
-  errText.innerText = ""
+  El("errText").innerText = ""
   On Error Resume Next
   Set shell = CreateObject("WScript.Shell")
+  shell.CurrentDirectory = PROJECT_DIR
   shell.Run "cmd /c cd /d """ & PROJECT_DIR & """ && node server.js", 0, False
   If Err.Number <> 0 Then
-    errText.innerText = "Couldn't launch Node. Is it installed?"
+    El("errText").innerText = "Couldn't launch Node. Is Node.js installed?"
     SetIdleUI
     Exit Sub
   End If
-  On Error Goto 0
+  On Error GoTo 0
   pollAttempts = 0
   window.setTimeout "PollForStart", 500, "VBScript"
 End Sub
@@ -256,10 +324,9 @@ Sub PollForStart
     SetRunningUI
     OpenUrl BASE_URL & "/settings.html"
   ElseIf pollAttempts >= 20 Then
-    errText.innerText = "Server didn't start. Check Node.js is installed and try again."
+    El("errText").innerText = "Server didn't start. Check that Node.js is installed, then try again."
     SetIdleUI
   Else
-    SetBusyUI "Starting..."
     window.setTimeout "PollForStart", 500, "VBScript"
   End If
 End Sub
@@ -275,53 +342,105 @@ Sub StopServer
       proc.Terminate()
     End If
   Next
-  On Error Goto 0
+  On Error GoTo 0
+  pollAttempts = 0
   window.setTimeout "PollForStop", 500, "VBScript"
 End Sub
 
 Sub PollForStop
-  If IsServerUp() Then
-    window.setTimeout "PollForStop", 500, "VBScript"
-  Else
+  pollAttempts = pollAttempts + 1
+  If Not IsServerUp() Then
     isRunning = False
     SetIdleUI
+  ElseIf pollAttempts >= 20 Then
+    El("errText").innerText = "Couldn't stop the server. Close it from Task Manager (node.exe)."
+    isRunning = True
+    SetRunningUI
+  Else
+    window.setTimeout "PollForStop", 500, "VBScript"
   End If
 End Sub
 
-Sub openUrl(u)
+Sub OpenUrl(u)
   Dim shell
   Set shell = CreateObject("WScript.Shell")
   shell.Run u
 End Sub
 
-Sub openObs()
-  Dim fso, shell, candidates, i, found
-  Set fso = CreateObject("Scripting.FileSystemObject")
+Sub DoOpenSettings
+  OpenUrl BASE_URL & "/settings.html"
+End Sub
+
+Sub DoOpenOverlay
+  OpenUrl BASE_URL & "/overlay.html"
+End Sub
+
+Function FindObs()
+  Dim shell, fso, regRoots, i, base, candidates, j
   Set shell = CreateObject("WScript.Shell")
+  Set fso = CreateObject("Scripting.FileSystemObject")
+  FindObs = ""
+
+  ' Ask the installer's registry entry first - handles installs on any drive.
+  regRoots = Array( _
+    "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\OBS Studio\InstallLocation", _
+    "HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\OBS Studio\InstallLocation", _
+    "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\OBS Studio\InstallLocation" _
+  )
+  For i = 0 To UBound(regRoots)
+    base = ""
+    On Error Resume Next
+    base = shell.RegRead(regRoots(i))
+    On Error GoTo 0
+    If base <> "" Then
+      If Right(base, 1) = "\" Then base = Left(base, Len(base) - 1)
+      If fso.FileExists(base & "\bin\64bit\obs64.exe") Then
+        FindObs = base & "\bin\64bit\obs64.exe"
+        Exit Function
+      End If
+      If fso.FileExists(base & "\bin\32bit\obs32.exe") Then
+        FindObs = base & "\bin\32bit\obs32.exe"
+        Exit Function
+      End If
+    End If
+  Next
+
   candidates = Array( _
     shell.ExpandEnvironmentStrings("%ProgramFiles%") & "\obs-studio\bin\64bit\obs64.exe", _
     shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\obs-studio\bin\64bit\obs64.exe", _
     shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\obs-studio\bin\32bit\obs32.exe", _
     shell.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Programs\obs-studio\bin\64bit\obs64.exe" _
   )
-  found = ""
-  For i = 0 To UBound(candidates)
-    If fso.FileExists(candidates(i)) Then
-      found = candidates(i)
-      Exit For
+  For j = 0 To UBound(candidates)
+    If fso.FileExists(candidates(j)) Then
+      FindObs = candidates(j)
+      Exit Function
     End If
   Next
-  errText.innerText = ""
-  If found = "" Then
-    errText.innerText = "Couldn't find OBS in its usual install folder - open it manually this time."
+End Function
+
+Sub DoOpenObs
+  Dim shell, fso, exePath
+  Set shell = CreateObject("WScript.Shell")
+  Set fso = CreateObject("Scripting.FileSystemObject")
+  El("errText").innerText = ""
+
+  exePath = FindObs()
+  If exePath = "" Then
+    El("errText").innerText = "Couldn't find OBS automatically - open it manually this time."
     Exit Sub
   End If
+
+  ' OBS must be launched with its own bin folder as the working directory,
+  ' otherwise it fails to find its locale/plugin files and won't start.
   On Error Resume Next
-  shell.Run """" & found & """"
+  shell.CurrentDirectory = fso.GetParentFolderName(exePath)
+  shell.Run """" & exePath & """", 1, False
   If Err.Number <> 0 Then
-    errText.innerText = "Found OBS but couldn't launch it."
+    El("errText").innerText = "Found OBS but couldn't launch it."
   End If
-  On Error Goto 0
+  On Error GoTo 0
+  shell.CurrentDirectory = PROJECT_DIR
 End Sub
 </script>
 </body>

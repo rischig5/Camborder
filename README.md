@@ -6,16 +6,24 @@ A configurable camera border overlay for OBS / Twitch. It's a transparent page y
 
 You need [Node.js](https://nodejs.org) installed (no other dependencies — nothing to `npm install`).
 
+**Windows — one-click launcher (recommended, no terminal needed):**
+
+Double-click **`Start Camborder.bat`**. A small purple popup window opens with a circular **START** button — click it. It launches the server in the background (no console window), waits for it to come up, and automatically opens the settings panel in your browser. The button turns into a red **STOP** you can click to shut the server down; closing the popup window does *not* stop the server, so you can safely close it once things are running.
+
+Tip: right-click `Start Camborder.bat` → **Send to** → **Desktop (create shortcut)** so it's one click from your desktop every time, no need to open this folder or VS Code again. If Windows SmartScreen warns about an unrecognized app the first time (normal for any unsigned local script), click **More info** → **Run anyway**.
+
+**Any OS — manual start:**
+
 ```
 node server.js
 ```
 
-This starts a small local server and prints two URLs:
+Either way, this starts a small local server and prints two URLs:
 
 - `http://localhost:5173/overlay.html` — the actual border, point OBS at this one.
 - `http://localhost:5173/settings.html` — the control panel, open this in your normal browser.
 
-Leave the server running while you stream (start it before OBS, e.g. add it to your usual pre-stream checklist, or run it in the background).
+Leave the server running while you stream.
 
 ### Why a server instead of just opening the HTML files?
 

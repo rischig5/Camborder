@@ -1,5 +1,6 @@
 <html>
 <head>
+<meta http-equiv="x-ua-compatible" content="IE=edge" />
 <title>Camborder</title>
 <HTA:APPLICATION
   ID="camborderLauncher"
@@ -10,13 +11,16 @@
   SYSMENU="yes"
   SCROLL="no"
   SINGLEINSTANCE="yes"
+  WIDTH="360"
+  HEIGHT="560"
+  NAVIGABLE="no"
 />
 <style>
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
-    width: 340px;
-    height: 460px;
+    width: 360px;
+    height: 560px;
     background: #0e0e10;
     color: #efeff1;
     font-family: 'Segoe UI', Arial, sans-serif;
@@ -140,6 +144,7 @@
     <div class="links">
       <button id="openSettings" onclick="openUrl('http://localhost:5173/settings.html')" disabled>Open Settings Panel</button>
       <button id="openOverlay" onclick="openUrl('http://localhost:5173/overlay.html')" disabled>Open Overlay Preview</button>
+      <button id="openObs" onclick="openObs()">Open OBS</button>
     </div>
   </div>
 
@@ -150,6 +155,10 @@ PORT = "5173"
 BASE_URL = "http://localhost:" & PORT
 
 Sub Window_OnLoad
+  On Error Resume Next
+  window.resizeTo 360, 560
+  window.moveTo (screen.availWidth - 360) \ 2, (screen.availHeight - 560) \ 2
+  On Error Goto 0
   PROJECT_DIR = GetProjectDir()
   isRunning = False
   RefreshStatus
@@ -237,7 +246,7 @@ Sub StartServer
   End If
   On Error Goto 0
   pollAttempts = 0
-  window.setTimeout "PollForStart", 500
+  window.setTimeout "PollForStart", 500, "VBScript"
 End Sub
 
 Sub PollForStart
@@ -251,7 +260,7 @@ Sub PollForStart
     SetIdleUI
   Else
     SetBusyUI "Starting..."
-    window.setTimeout "PollForStart", 500
+    window.setTimeout "PollForStart", 500, "VBScript"
   End If
 End Sub
 
@@ -267,12 +276,12 @@ Sub StopServer
     End If
   Next
   On Error Goto 0
-  window.setTimeout "PollForStop", 500
+  window.setTimeout "PollForStop", 500, "VBScript"
 End Sub
 
 Sub PollForStop
   If IsServerUp() Then
-    window.setTimeout "PollForStop", 500
+    window.setTimeout "PollForStop", 500, "VBScript"
   Else
     isRunning = False
     SetIdleUI
@@ -283,6 +292,36 @@ Sub openUrl(u)
   Dim shell
   Set shell = CreateObject("WScript.Shell")
   shell.Run u
+End Sub
+
+Sub openObs()
+  Dim fso, shell, candidates, i, found
+  Set fso = CreateObject("Scripting.FileSystemObject")
+  Set shell = CreateObject("WScript.Shell")
+  candidates = Array( _
+    shell.ExpandEnvironmentStrings("%ProgramFiles%") & "\obs-studio\bin\64bit\obs64.exe", _
+    shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\obs-studio\bin\64bit\obs64.exe", _
+    shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\obs-studio\bin\32bit\obs32.exe", _
+    shell.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Programs\obs-studio\bin\64bit\obs64.exe" _
+  )
+  found = ""
+  For i = 0 To UBound(candidates)
+    If fso.FileExists(candidates(i)) Then
+      found = candidates(i)
+      Exit For
+    End If
+  Next
+  errText.innerText = ""
+  If found = "" Then
+    errText.innerText = "Couldn't find OBS in its usual install folder - open it manually this time."
+    Exit Sub
+  End If
+  On Error Resume Next
+  shell.Run """" & found & """"
+  If Err.Number <> 0 Then
+    errText.innerText = "Found OBS but couldn't launch it."
+  End If
+  On Error Goto 0
 End Sub
 </script>
 </body>
